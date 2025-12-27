@@ -10,7 +10,7 @@ export default function MarketCard({ widget }: { widget: WidgetConfig }) {
     const { data, loading, error } = useWidgetData(widget.apiConfig, widget.settings?.refreshInterval);
 
     // Check for Real-time Socket capability
-    const useSocket = widget.apiConfig?.provider === 'finnhub' && widget.apiConfig.params.symbol;
+    const useSocket = !!(widget.apiConfig?.provider === 'finnhub' && widget.apiConfig.params.symbol);
     const { data: realtimeData, status: socketStatus } = useRealtimeData(
         widget.apiConfig,
         useSocket // Enable if it's finnhub

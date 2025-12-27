@@ -50,7 +50,7 @@ export default function WidgetConfigModal({ widget, isOpen, onClose }: WidgetCon
         setChartType(widget.settings?.chartType || 'line');
         setChartInterval(widget.settings?.chartInterval || 'daily');
         setDescription(widget.description || '');
-        setFormat(widget.format || '');
+        setFormat(widget.format || 'none');
         setDataMap(widget.dataMap || {});
     }, [widget]);
 

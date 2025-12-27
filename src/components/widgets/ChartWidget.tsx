@@ -32,7 +32,7 @@ export default function ChartWidget({ widget }: { widget: WidgetConfig }) {
     const [chartType, setChartType] = React.useState<ChartType>(widget.settings?.chartType || 'line');
     
     // Real-time data support
-    const useSocket = widget.apiConfig?.provider === 'finnhub' && widget.apiConfig.params.symbol;
+    const useSocket = !!(widget.apiConfig?.provider === 'finnhub' && widget.apiConfig.params.symbol);
     const { data: realtimeData, status: socketStatus } = useRealtimeData(
         widget.apiConfig,
         useSocket
