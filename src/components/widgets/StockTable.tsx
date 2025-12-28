@@ -22,21 +22,18 @@ export default function StockTable({ widget }: { widget: WidgetConfig }) {
     // const loading = true; 
 
     const allData = (Array.isArray(data) && data.length > 0 ? data : [
-        { symbol: 'AAPL', price: 150.2, volume: '50M', type: 'Tech' },
-        { symbol: 'GOOGL', price: 2800.5, volume: '2M', type: 'Tech' },
-        { symbol: 'MSFT', price: 300.1, volume: '20M', type: 'Tech' },
-        { symbol: 'AMZN', price: 3400.0, volume: '3M', type: 'Retail' },
-        { symbol: 'TSLA', price: 900.5, volume: '15M', type: 'Auto' },
-        { symbol: 'NVDA', price: 420.0, volume: '10M', type: 'Tech' },
-        { symbol: 'JPM', price: 160.0, volume: '8M', type: 'Finance' },
-        { symbol: 'V', price: 230.0, volume: '5M', type: 'Finance' },
-        { symbol: 'WMT', price: 140.0, volume: '12M', type: 'Retail' },
-        { symbol: 'DIS', price: 110.0, volume: '18M', type: 'Entertainment' },
+        { company: 'Uti Silver Etf', price: 114.2, '52_week_high': 114.73 },
+        { company: 'Mirae Asset Mutual Fund Silver Etf', price: 114.92, '52_week_high': 114.70 },
+        { company: 'Sbi Fix Sr54 1842 D Reg Idcw Cf', price: 16.03, '52_week_high': 16.22 },
+        { company: 'Hdfc Gold Etf', price: 87.00, '52_week_high': 88.21 },
+        { company: 'Absl Fmurrn', price: 110.16, '52_week_high': 110.16 },
+        { company: 'Motilal Oswal Midcap 100 Etf', price: 60.32, '52_week_high': 22.00 },
     ]);
 
     const filtered = allData.filter((r: any) =>
-        r.symbol?.toLowerCase().includes(searchTerm.toLowerCase()) &&
-        (filterType === 'all' || r.type === filterType)
+        Object.values(r).some(val =>
+            String(val).toLowerCase().includes(searchTerm.toLowerCase())
+        )
     );
 
     const totalPages = Math.ceil(filtered.length / itemsPerPage);
@@ -72,45 +69,35 @@ export default function StockTable({ widget }: { widget: WidgetConfig }) {
     }
 
     return (
-        <div className="flex flex-col h-full">
-            <div className="mb-2 flex gap-2">
-                <div className="flex-1 flex items-center bg-gray-100 dark:bg-zinc-800 rounded px-2">
-                    <Search size={14} className="text-gray-500" />
+        <div className="flex flex-col h-full bg-transparent">
+            <div className="mb-3">
+                <div className="relative">
+                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                     <input
                         type="text"
-                        placeholder="Search..."
-                        className="w-full bg-transparent border-none focus:ring-0 p-1.5 text-sm dark:text-white outline-none"
+                        placeholder="Search table..."
+                        className="w-full bg-gray-100 dark:bg-zinc-900/50 border border-transparent focus:border-emerald-500/50 rounded-lg pl-9 pr-3 py-2 text-xs dark:text-gray-200 outline-none transition-all placeholder-gray-500"
                         value={searchTerm}
                         onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }}
                     />
                 </div>
-                <select
-                    className="bg-gray-100 dark:bg-zinc-800 text-xs px-2 rounded dark:text-gray-300 border-none outline-none"
-                    value={filterType}
-                    onChange={e => setFilterType(e.target.value)}
-                >
-                    <option value="all">All</option>
-                    <option value="Tech">Tech</option>
-                    <option value="Finance">Finance</option>
-                    <option value="Retail">Retail</option>
-                </select>
             </div>
 
-            <div className="flex-1 overflow-auto">
+            <div className="flex-1 overflow-auto rounded-lg border border-gray-100 dark:border-zinc-800/50">
                 <table className="w-full text-sm text-left">
-                    <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-zinc-900 dark:text-gray-400 sticky top-0">
+                    <thead className="text-xs text-gray-500 dark:text-gray-400 uppercase bg-gray-50 dark:bg-zinc-900/50 sticky top-0 backdrop-blur-sm">
                         <tr>
                             {paginated.length > 0 ? Object.keys(paginated[0]).map((key) => (
-                                <th key={key} className="px-3 py-2">{key.replace(/_/g, ' ')}</th>
-                            )) : <th className="px-3 py-2">No Data</th>}
+                                <th key={key} className="px-4 py-3 font-medium tracking-wider">{key.replace(/_/g, ' ')}</th>
+                            )) : <th className="px-4 py-3">No Data</th>}
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody className="divide-y divide-gray-100 dark:divide-zinc-800/50">
                         {paginated.map((row, i) => (
-                            <tr key={i} className="bg-white border-b dark:bg-zinc-950 dark:border-zinc-800 hover:bg-gray-50 dark:hover:bg-zinc-900 transition-colors">
+                            <tr key={i} className="group hover:bg-gray-50 dark:hover:bg-zinc-800/30 transition-colors bg-transparent">
                                 {Object.values(row).map((val: any, idx) => (
-                                    <td key={idx} className="px-3 py-2 dark:text-gray-300">
-                                        {typeof val === 'object' ? JSON.stringify(val) : String(val)}
+                                    <td key={idx} className="px-4 py-3 dark:text-gray-300 font-medium whitespace-nowrap">
+                                        {typeof val === 'number' ? val.toLocaleString() : String(val)}
                                     </td>
                                 ))}
                             </tr>
@@ -119,18 +106,20 @@ export default function StockTable({ widget }: { widget: WidgetConfig }) {
                 </table>
             </div>
 
-            <div className="mt-2 flex items-center justify-between text-xs text-gray-500 border-t pt-2 dark:border-zinc-800">
-                <span>Page {currentPage} of {totalPages || 1}</span>
-                <div className="flex gap-1">
+            <div className="mt-3 flex items-center justify-between">
+                <span className="text-[10px] text-gray-400 dark:text-gray-500">
+                    Showing {paginated.length} of {filtered.length} items
+                </span>
+                <div className="flex gap-2">
                     <button
                         onClick={handlePrev}
                         disabled={currentPage === 1}
-                        className="px-2 py-1 bg-gray-100 dark:bg-zinc-800 rounded hover:bg-gray-200 disabled:opacity-50"
+                        className="px-3 py-1 text-xs font-medium text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-zinc-800 rounded-md hover:bg-gray-200 dark:hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                     >Prev</button>
                     <button
                         onClick={handleNext}
                         disabled={currentPage === totalPages || totalPages === 0}
-                        className="px-2 py-1 bg-gray-100 dark:bg-zinc-800 rounded hover:bg-gray-200 disabled:opacity-50"
+                        className="px-3 py-1 text-xs font-medium text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-zinc-800 rounded-md hover:bg-gray-200 dark:hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                     >Next</button>
                 </div>
             </div>

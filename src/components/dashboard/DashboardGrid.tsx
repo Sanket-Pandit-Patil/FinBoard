@@ -421,10 +421,18 @@ export default function DashboardGrid() {
             </div>
 
             {!hasWidgets && (
-                <div className="flex flex-col items-center justify-center p-12 border-2 border-dashed border-gray-300 dark:border-zinc-800 rounded-xl bg-gray-50 dark:bg-zinc-900/50">
-                    <div className="text-gray-400 mb-2">Dataset is empty</div>
-                    <p className="text-gray-500 mb-4">Add your first widget to get started</p>
-                    <button onClick={() => onAddWidget('card')} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Add Finance Card</button>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                    <div className="aspect-[4/3] rounded-xl border border-dashed border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/10 cursor-pointer transition-all duration-300 group flex flex-col items-center justify-center p-6 text-center"
+                        onClick={() => onAddWidget('card')}
+                    >
+                        <div className="w-12 h-12 rounded-full bg-emerald-500 flex items-center justify-center mb-4 shadow-lg shadow-emerald-500/30 group-hover:scale-110 transition-transform duration-300">
+                            <span className="text-white text-2xl font-light">+</span>
+                        </div>
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Add Widget</h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 max-w-[200px]">
+                            Connect to a finance API and create a custom widget
+                        </p>
+                    </div>
                 </div>
             )}
 
