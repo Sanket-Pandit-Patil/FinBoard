@@ -5,7 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 const initialState: DashboardState = {
     layouts: { lg: [], md: [], sm: [] },
     widgets: {},
-    theme: 'light',
+    theme: 'dark',
 };
 
 const dashboardSlice = createSlice({

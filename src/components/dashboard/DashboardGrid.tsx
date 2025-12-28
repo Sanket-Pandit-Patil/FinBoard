@@ -138,7 +138,8 @@ export default function DashboardGrid() {
                 
                 dispatch(loadDashboard({
                     ...parsed,
-                    layouts: normalizedLayouts
+                    layouts: normalizedLayouts,
+                    theme: parsed.theme || 'dark' // Default to dark if not set
                 }));
                 hasHandledInitialLayoutRef.current = true;
             } catch (e) {
