@@ -21,7 +21,7 @@ export default function StockTable({ widget }: { widget: WidgetConfig }) {
     // For manual verification of loading state without real API:
     // const loading = true; 
 
-    const allData = (Array.isArray(data) ? data : [
+    const allData = (Array.isArray(data) && data.length > 0 ? data : [
         { symbol: 'AAPL', price: 150.2, volume: '50M', type: 'Tech' },
         { symbol: 'GOOGL', price: 2800.5, volume: '2M', type: 'Tech' },
         { symbol: 'MSFT', price: 300.1, volume: '20M', type: 'Tech' },

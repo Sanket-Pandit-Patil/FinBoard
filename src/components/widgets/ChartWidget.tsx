@@ -28,9 +28,9 @@ interface CandlestickData {
 
 export default function ChartWidget({ widget }: { widget: WidgetConfig }) {
     const { data: apiData, loading, error } = useWidgetData(widget.apiConfig, widget.settings?.refreshInterval);
-    const [interval, setInterval] = React.useState<ChartInterval>(widget.settings?.chartInterval || 'daily');
+    const [interval, setChartInterval] = React.useState<ChartInterval>(widget.settings?.chartInterval || 'daily');
     const [chartType, setChartType] = React.useState<ChartType>(widget.settings?.chartType || 'line');
-    
+
     // Real-time data support
     const useSocket = !!(widget.apiConfig?.provider === 'finnhub' && widget.apiConfig.params.symbol);
     const { data: realtimeData, status: socketStatus } = useRealtimeData(
@@ -41,7 +41,7 @@ export default function ChartWidget({ widget }: { widget: WidgetConfig }) {
     // Sync with widget settings changes
     React.useEffect(() => {
         if (widget.settings?.chartInterval) {
-            setInterval(widget.settings.chartInterval);
+            setChartInterval(widget.settings.chartInterval);
         }
         if (widget.settings?.chartType) {
             setChartType(widget.settings.chartType);
@@ -51,26 +51,26 @@ export default function ChartWidget({ widget }: { widget: WidgetConfig }) {
     // Mock data based on interval
     const lineDataMap: Record<ChartInterval, any[]> = {
         'daily': [
-            { name: '9am', v: 100 }, 
-            { name: '10am', v: 102 }, 
-            { name: '11am', v: 105 }, 
-            { name: '12pm', v: 103 }, 
-            { name: '1pm', v: 108 }, 
-            { name: '2pm', v: 106 }, 
-            { name: '3pm', v: 110 }, 
+            { name: '9am', v: 100 },
+            { name: '10am', v: 102 },
+            { name: '11am', v: 105 },
+            { name: '12pm', v: 103 },
+            { name: '1pm', v: 108 },
+            { name: '2pm', v: 106 },
+            { name: '3pm', v: 110 },
             { name: '4pm', v: 108 }
         ],
         'weekly': [
-            { name: 'Mon', v: 100 }, 
-            { name: 'Tue', v: 105 }, 
-            { name: 'Wed', v: 102 }, 
-            { name: 'Thu', v: 108 }, 
+            { name: 'Mon', v: 100 },
+            { name: 'Tue', v: 105 },
+            { name: 'Wed', v: 102 },
+            { name: 'Thu', v: 108 },
             { name: 'Fri', v: 110 }
         ],
         'monthly': [
-            { name: 'Week 1', v: 100 }, 
-            { name: 'Week 2', v: 115 }, 
-            { name: 'Week 3', v: 108 }, 
+            { name: 'Week 1', v: 100 },
+            { name: 'Week 2', v: 115 },
+            { name: 'Week 3', v: 108 },
             { name: 'Week 4', v: 120 }
         ],
     };
@@ -102,8 +102,40 @@ export default function ChartWidget({ widget }: { widget: WidgetConfig }) {
         ],
     };
 
-    // Use API data if valid array, else fallback to mock
-    const lineData = (Array.isArray(apiData) && apiData.length > 0) ? apiData : (lineDataMap[interval] || lineDataMap['daily']);
+    // Live Simulation for "Hardcoded" feel
+    const [simulatedData, setSimulatedData] = React.useState<any[]>([]);
+
+    React.useEffect(() => {
+        // Initialize with basic mock data based on interval
+        const baseData = lineDataMap[interval] || lineDataMap['daily'];
+        setSimulatedData(baseData);
+
+        // Simulation Loop
+        const simInterval = setInterval(() => {
+            setSimulatedData(prev => {
+                // Clone the last point and modify it slightly for a "live" feel
+                const newData = [...prev];
+                const lastItem = newData[newData.length - 1];
+
+                // Random walk logic
+                const change = (Math.random() - 0.5) * 5; // -2.5 to +2.5
+                const newValue = Math.max(50, (lastItem.v || 100) + change);
+
+                // Shift: Remove first, add new "Next Hour/Day"
+                const shiftedData = newData.slice(1);
+
+                // Generate next label logic (simplified)
+                const nextLabel = "Live";
+
+                return [...shiftedData, { ...lastItem, name: nextLabel, v: Number(newValue.toFixed(2)) }];
+            });
+        }, 3000); // Update every 3 seconds
+
+        return () => clearInterval(simInterval);
+    }, [interval]);
+
+    // Use API data if valid, otherwise use Simulated Data
+    const lineData = (Array.isArray(apiData) && apiData.length > 0) ? apiData : simulatedData;
     const candleData = candleDataMap[interval] || candleDataMap['daily'];
 
 
@@ -128,7 +160,7 @@ export default function ChartWidget({ widget }: { widget: WidgetConfig }) {
                         {(['daily', 'weekly', 'monthly'] as ChartInterval[]).map(i => (
                             <button
                                 key={i}
-                                onClick={() => setInterval(i)}
+                                onClick={() => setChartInterval(i)}
                                 className={`text-[10px] px-2 py-0.5 rounded capitalize ${interval === i ? 'bg-white dark:bg-zinc-600 shadow-sm font-medium' : 'text-gray-500'}`}
                             >
                                 {i}
@@ -151,20 +183,20 @@ export default function ChartWidget({ widget }: { widget: WidgetConfig }) {
                     )}
                 </div>
                 <div className="flex gap-1">
-                    <button 
-                        onClick={() => setChartType('line')} 
+                    <button
+                        onClick={() => setChartType('line')}
                         className={`text-[10px] px-1 ${chartType === 'line' ? 'text-blue-600 font-medium' : 'text-gray-400'}`}
                     >
                         Line
                     </button>
-                    <button 
-                        onClick={() => setChartType('candle')} 
+                    <button
+                        onClick={() => setChartType('candle')}
                         className={`text-[10px] px-1 ${chartType === 'candle' ? 'text-blue-600 font-medium' : 'text-gray-400'}`}
                     >
                         Candle
                     </button>
-                    <button 
-                        onClick={() => setChartType('bar')} 
+                    <button
+                        onClick={() => setChartType('bar')}
                         className={`text-[10px] px-1 ${chartType === 'bar' ? 'text-blue-600 font-medium' : 'text-gray-400'}`}
                     >
                         Bar
@@ -185,25 +217,25 @@ export default function ChartWidget({ widget }: { widget: WidgetConfig }) {
                         </div>
                     </div>
                 ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                    {chartType === 'line' ? (
-                        <LineChart data={lineData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-                            <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
-                            <XAxis dataKey="name" fontSize={10} tickLine={false} axisLine={false} />
-                            <YAxis fontSize={10} tickLine={false} axisLine={false} domain={['auto', 'auto']} />
-                            <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
-                            <Line type="monotone" dataKey="v" stroke="#3b82f6" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
-                        </LineChart>
-                    ) : (
-                        <BarChart data={lineData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-                            <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
-                            <XAxis dataKey="name" fontSize={10} tickLine={false} axisLine={false} />
-                            <YAxis fontSize={10} tickLine={false} axisLine={false} />
-                            <Tooltip cursor={{ fill: 'transparent' }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
-                            <Bar dataKey="v" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                        </BarChart>
-                    )}
-                </ResponsiveContainer>
+                    <ResponsiveContainer width="100%" height="100%">
+                        {chartType === 'line' ? (
+                            <LineChart data={lineData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+                                <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
+                                <XAxis dataKey="name" fontSize={10} tickLine={false} axisLine={false} />
+                                <YAxis fontSize={10} tickLine={false} axisLine={false} domain={['auto', 'auto']} />
+                                <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                                <Line type="monotone" dataKey="v" stroke="#3b82f6" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+                            </LineChart>
+                        ) : (
+                            <BarChart data={lineData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+                                <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
+                                <XAxis dataKey="name" fontSize={10} tickLine={false} axisLine={false} />
+                                <YAxis fontSize={10} tickLine={false} axisLine={false} />
+                                <Tooltip cursor={{ fill: 'transparent' }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                                <Bar dataKey="v" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                            </BarChart>
+                        )}
+                    </ResponsiveContainer>
                 )}
             </div>
         </div>
