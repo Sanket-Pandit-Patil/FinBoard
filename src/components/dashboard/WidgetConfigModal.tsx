@@ -14,9 +14,10 @@ interface WidgetConfigModalProps {
     widget: WidgetConfig;
     isOpen: boolean;
     onClose: () => void;
+    onSave?: (updates: Partial<WidgetConfig>) => void;
 }
 
-export default function WidgetConfigModal({ widget, isOpen, onClose }: WidgetConfigModalProps) {
+export default function WidgetConfigModal({ widget, isOpen, onClose, onSave }: WidgetConfigModalProps) {
     const dispatch = useAppDispatch();
     const [title, setTitle] = useState(widget.title);
     const [provider, setProvider] = useState<AdapterId>(widget.apiConfig?.provider || 'alpha-vantage');
@@ -57,7 +58,7 @@ export default function WidgetConfigModal({ widget, isOpen, onClose }: WidgetCon
     const handleFetch = async () => {
         setLoading(true);
         setError(null);
-        
+
         try {
             // Check API key status
             const keyStatus = getApiKeyStatus(provider);
@@ -71,7 +72,7 @@ export default function WidgetConfigModal({ widget, isOpen, onClose }: WidgetCon
             const rateLimitCheck = rateLimiter.canMakeRequest(provider);
             if (!rateLimitCheck.allowed) {
                 setError(
-                    rateLimitCheck.retryAfter 
+                    rateLimitCheck.retryAfter
                         ? `${rateLimitCheck.reason}. Retry after ${rateLimitCheck.retryAfter} seconds.`
                         : rateLimitCheck.reason || 'Rate limit exceeded'
                 );
@@ -119,24 +120,30 @@ export default function WidgetConfigModal({ widget, isOpen, onClose }: WidgetCon
     };
 
     const handleSave = () => {
-        dispatch(updateWidget({
-            id: widget.id,
-            changes: {
-                title,
-                description,
-                format,
-                apiConfig: { provider, endpoint, params },
-                dataMap,
-                settings: {
-                    ...widget.settings,
-                    refreshInterval,
-                    viewMode: isCard && cardType !== 'single' ? 'list' : viewMode,
-                    cardType: isCard ? cardType : undefined,
-                    chartType: isChart ? chartType : undefined,
-                    chartInterval: isChart ? chartInterval : undefined
-                }
+        const updates = {
+            title,
+            description,
+            format,
+            apiConfig: { provider, endpoint, params },
+            dataMap,
+            settings: {
+                ...widget.settings,
+                refreshInterval,
+                viewMode: isCard && cardType !== 'single' ? 'list' : viewMode,
+                cardType: isCard ? cardType : undefined,
+                chartType: isChart ? chartType : undefined,
+                chartInterval: isChart ? chartInterval : undefined
             }
-        }));
+        };
+
+        if (onSave) {
+            onSave(updates);
+        } else {
+            dispatch(updateWidget({
+                id: widget.id,
+                changes: updates
+            }));
+        }
         onClose();
     };
 
@@ -314,11 +321,10 @@ export default function WidgetConfigModal({ widget, isOpen, onClose }: WidgetCon
                                                 setCardType(type);
                                                 if (type !== 'single') setViewMode('list');
                                             }}
-                                            className={`text-xs font-medium py-2 rounded-md transition-all capitalize border ${
-                                                cardType === type 
-                                                    ? 'bg-[#10B981] text-white border-[#10B981] shadow' 
+                                            className={`text-xs font-medium py-2 rounded-md transition-all capitalize border ${cardType === type
+                                                    ? 'bg-[#10B981] text-white border-[#10B981] shadow'
                                                     : 'bg-[#1E293B] text-slate-400 border-slate-700 hover:text-white hover:border-slate-600'
-                                            }`}
+                                                }`}
                                         >
                                             {type === 'market-gainers' ? 'Gainers' : type === 'single' ? 'Single Value' : type}
                                         </button>
@@ -334,9 +340,8 @@ export default function WidgetConfigModal({ widget, isOpen, onClose }: WidgetCon
                                         <button
                                             key={type}
                                             onClick={() => setChartType(type)}
-                                            className={`flex-1 text-xs font-medium py-2 rounded-md transition-all capitalize ${
-                                                chartType === type ? 'bg-[#10B981] text-white shadow' : 'text-slate-400 hover:text-white'
-                                            }`}
+                                            className={`flex-1 text-xs font-medium py-2 rounded-md transition-all capitalize ${chartType === type ? 'bg-[#10B981] text-white shadow' : 'text-slate-400 hover:text-white'
+                                                }`}
                                         >
                                             {type}
                                         </button>
@@ -352,9 +357,8 @@ export default function WidgetConfigModal({ widget, isOpen, onClose }: WidgetCon
                                         <button
                                             key={interval}
                                             onClick={() => setChartInterval(interval)}
-                                            className={`flex-1 text-xs font-medium py-2 rounded-md transition-all capitalize ${
-                                                chartInterval === interval ? 'bg-[#10B981] text-white shadow' : 'text-slate-400 hover:text-white'
-                                            }`}
+                                            className={`flex-1 text-xs font-medium py-2 rounded-md transition-all capitalize ${chartInterval === interval ? 'bg-[#10B981] text-white shadow' : 'text-slate-400 hover:text-white'
+                                                }`}
                                         >
                                             {interval}
                                         </button>
@@ -422,7 +426,7 @@ export default function WidgetConfigModal({ widget, isOpen, onClose }: WidgetCon
                                     <span className="text-xs text-slate-500">→ Click field to map</span>
                                 </div>
                             </div>
-                            
+
                             {/* Mapped Fields Display - Show first */}
                             {Object.keys(dataMap).length > 0 && (
                                 <div className="space-y-2">
@@ -449,10 +453,10 @@ export default function WidgetConfigModal({ widget, isOpen, onClose }: WidgetCon
 
                             <div className="bg-[#1E293B] rounded-lg border border-slate-700 p-4 max-h-60 overflow-y-auto font-mono text-sm text-slate-300">
                                 <div className="text-xs text-slate-500 mb-2">Click any field value below to map it to "{mappingFieldName}"</div>
-                                <JsonExplorer 
-                                    data={apiResponse} 
-                                    onSelectPath={(path: string, value: any) => handleFieldSelect(path, value)} 
-                                    selectedPath={dataMap[mappingFieldName] || ''} 
+                                <JsonExplorer
+                                    data={apiResponse}
+                                    onSelectPath={(path: string, value: any) => handleFieldSelect(path, value)}
+                                    selectedPath={dataMap[mappingFieldName] || ''}
                                 />
                             </div>
                         </div>

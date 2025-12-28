@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { updateLayout, addWidget, loadDashboard, setTheme } from '@/store/dashboardSlice';
+import { updateLayout, addWidget, loadDashboard, setTheme, updateWidget } from '@/store/dashboardSlice';
 import WidgetShell from './WidgetShell';
 import WidgetRenderer from './WidgetRenderer';
 import WidgetConfigModal from './WidgetConfigModal';
@@ -25,10 +25,12 @@ export default function DashboardGrid() {
     const [mounted, setMounted] = React.useState(false);
     const [isLoaded, setIsLoaded] = React.useState(false);
     const [editingWidgetId, setEditingWidgetId] = React.useState<string | null>(null);
+    const [creatingWidgetType, setCreatingWidgetType] = React.useState<'card' | 'table' | 'chart' | null>(null);
     const [showTemplates, setShowTemplates] = React.useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const isInitialLoadRef = useRef(true);
     const hasHandledInitialLayoutRef = useRef(false);
+    const ignoreLayoutChangeRef = useRef(false);
 
     useEffect(() => setMounted(true), []);
 
@@ -43,11 +45,11 @@ export default function DashboardGrid() {
                     md: (parsed.layouts?.md || []).filter((item: any) => parsed.widgets?.[item.i]),
                     sm: (parsed.layouts?.sm || []).filter((item: any) => parsed.widgets?.[item.i]),
                 };
-                
+
                 // Ensure all widgets have corresponding layout items
                 const widgetIds = Object.keys(parsed.widgets || {});
                 const existingLayoutIds = new Set(normalizedLayouts.lg.map((item: any) => item.i));
-                
+
                 // Add missing layout items for widgets that don't have layouts
                 widgetIds.forEach((id, index) => {
                     if (!existingLayoutIds.has(id)) {
@@ -58,33 +60,33 @@ export default function DashboardGrid() {
                         const itemsPerRow = Math.floor(cols / w);
                         const row = Math.floor(index / itemsPerRow);
                         const col = (index % itemsPerRow) * w;
-                        
+
                         normalizedLayouts.lg.push({ i: id, x: col, y: row * h, w, h });
                         normalizedLayouts.md.push({ i: id, x: col, y: row * h, w, h });
                         normalizedLayouts.sm.push({ i: id, x: 0, y: row * h, w: 2, h });
                     }
                 });
-                
+
                 // Function to detect and fix overlapping positions
                 const fixOverlaps = (layout: any[], cols: number) => {
                     if (layout.length === 0) return layout;
-                    
+
                     const fixed: any[] = [];
                     const occupied = new Map<string, string>(); // position -> widget id
-                    
+
                     // Sort by y, then x to process top-to-bottom, left-to-right
                     const sorted = [...layout].sort((a, b) => {
                         if (a.y !== b.y) return a.y - b.y;
                         return a.x - b.x;
                     });
-                    
+
                     sorted.forEach((item) => {
                         let x = item.x || 0;
                         let y = item.y || 0;
                         const w = item.w || 4;
                         const h = item.h || 4;
                         let placed = false;
-                        
+
                         // Check if current position is free
                         const checkPosition = (px: number, py: number) => {
                             if (px + w > cols || px < 0 || py < 0) return false;
@@ -98,14 +100,14 @@ export default function DashboardGrid() {
                             }
                             return true;
                         };
-                        
+
                         // Try original position first
                         if (checkPosition(x, y)) {
                             placed = true;
                         } else {
                             // Try to find a free position
                             const maxY = Math.max(...fixed.map(i => (i.y + i.h) || 0), 0);
-                            for (let tryY = 0; tryY <= maxY + h && !placed; tryY += h) {
+                            for (let tryY = 0; tryY <= maxY + h && !placed; tryY += w) {
                                 for (let tryX = 0; tryX <= cols - w && !placed; tryX += w) {
                                     if (checkPosition(tryX, tryY)) {
                                         x = tryX;
@@ -115,11 +117,11 @@ export default function DashboardGrid() {
                                 }
                             }
                         }
-                        
+
                         // Place the item
                         const placedItem = { ...item, x, y, w, h };
                         fixed.push(placedItem);
-                        
+
                         // Mark positions as occupied
                         for (let dy = 0; dy < h; dy++) {
                             for (let dx = 0; dx < w; dx++) {
@@ -127,15 +129,15 @@ export default function DashboardGrid() {
                             }
                         }
                     });
-                    
+
                     return fixed;
                 };
-                
+
                 // Fix overlaps for each breakpoint
                 normalizedLayouts.lg = fixOverlaps(normalizedLayouts.lg, 12);
                 normalizedLayouts.md = fixOverlaps(normalizedLayouts.md, 10);
                 normalizedLayouts.sm = fixOverlaps(normalizedLayouts.sm, 6);
-                
+
                 dispatch(loadDashboard({
                     ...parsed,
                     layouts: normalizedLayouts,
@@ -169,28 +171,28 @@ export default function DashboardGrid() {
                 md: Array.isArray(layouts.md) ? layouts.md : [],
                 sm: Array.isArray(layouts.sm) ? layouts.sm : [],
             };
-            
+
             // Filter out any layout items that don't have corresponding widgets
             const filterLayout = (layout: any[]) => {
-                return layout.filter((item: any) => widgets[item.i] && 
-                    typeof item.x === 'number' && 
+                return layout.filter((item: any) => widgets[item.i] &&
+                    typeof item.x === 'number' &&
                     typeof item.y === 'number' &&
                     typeof item.w === 'number' &&
                     typeof item.h === 'number'
                 );
             };
-            
+
             const filteredLayouts = {
                 lg: filterLayout(validLayouts.lg),
                 md: filterLayout(validLayouts.md),
                 sm: filterLayout(validLayouts.sm),
             };
-            
+
             try {
-                localStorage.setItem('finboard_dashboard', JSON.stringify({ 
-                    layouts: filteredLayouts, 
-                    widgets, 
-                    theme 
+                localStorage.setItem('finboard_dashboard', JSON.stringify({
+                    layouts: filteredLayouts,
+                    widgets,
+                    theme
                 }));
             } catch (e) {
                 console.error("Failed to save dashboard to localStorage", e);
@@ -200,18 +202,19 @@ export default function DashboardGrid() {
 
     const handleLayoutChange = (currentLayout: any[], allLayouts: any) => {
         if (!mounted || !allLayouts || !isLoaded) return;
-        
+        if (ignoreLayoutChangeRef.current) return; // Ignore updates during addition
+
         // Skip the first layout change after initial load (it's usually from react-grid-layout initialization)
         if (isInitialLoadRef.current && hasHandledInitialLayoutRef.current) {
             isInitialLoadRef.current = false;
             // Don't update on initial render - use the loaded layout
             return;
         }
-        
+
         // Update all breakpoints that exist in our state
         const breakpoints: ('lg' | 'md' | 'sm')[] = ['lg', 'md', 'sm'];
         let hasChanges = false;
-        
+
         breakpoints.forEach(bp => {
             if (allLayouts[bp] && Array.isArray(allLayouts[bp])) {
                 // Ensure all layout items have valid properties and match existing widgets
@@ -228,7 +231,7 @@ export default function DashboardGrid() {
                         maxW: item.maxW,
                         maxH: item.maxH,
                     }));
-                
+
                 // Check if layout actually changed
                 const currentLayoutForBp = layouts[bp] || [];
                 if (JSON.stringify(currentLayoutForBp) !== JSON.stringify(validLayout)) {
@@ -240,18 +243,38 @@ export default function DashboardGrid() {
     };
 
     const onAddWidget = (type: 'card' | 'table' | 'chart') => {
-        const defaultSettings: any = {};
-        if (type === 'chart') {
-            defaultSettings.chartType = 'line';
-            defaultSettings.chartInterval = 'daily';
-        } else if (type === 'card') {
-            defaultSettings.cardType = 'single';
+        setCreatingWidgetType(type);
+    };
+
+    const [layoutVersion, setLayoutVersion] = useState(0);
+
+    // ...
+
+    const handleSaveWidget = (updates: any) => {
+        if (editingWidgetId) {
+            dispatch(updateWidget({ id: editingWidgetId, changes: updates }));
+            setEditingWidgetId(null);
+        } else if (creatingWidgetType) {
+            // Creating a new widget
+            ignoreLayoutChangeRef.current = true;
+            setTimeout(() => {
+                ignoreLayoutChangeRef.current = false;
+            }, 1000);
+
+            dispatch(addWidget({
+                type: creatingWidgetType,
+                title: updates.title || `New ${creatingWidgetType.charAt(0).toUpperCase() + creatingWidgetType.slice(1)}`,
+                description: updates.description,
+                apiConfig: updates.apiConfig,
+                dataMap: updates.dataMap,
+                settings: updates.settings,
+                format: updates.format
+            }));
+
+            // Force RGL to remount and pick up the new layout from Redux
+            setLayoutVersion(v => v + 1);
+            setCreatingWidgetType(null);
         }
-        dispatch(addWidget({
-            type,
-            title: `New ${type.charAt(0).toUpperCase() + type.slice(1)}`,
-            settings: defaultSettings,
-        }));
     };
 
     const handleExport = () => {
@@ -285,11 +308,11 @@ export default function DashboardGrid() {
     const handleLoadTemplate = (id: string) => {
         const template = (templates as any)[id]; // Simple lookup
         if (template) {
-            // Preserve template's theme or use current theme if template doesn't specify
+            // Keep current theme instead of template's theme
             dispatch(loadDashboard({
                 layouts: template.layouts,
                 widgets: template.widgets,
-                theme: template.theme || theme
+                theme: theme // Force current theme
             }));
             setShowTemplates(false);
         }
@@ -298,61 +321,73 @@ export default function DashboardGrid() {
     if (!mounted) return <div className="p-8 text-center text-gray-500">Loading Dashboard...</div>;
 
     const editingWidget = editingWidgetId ? widgets[editingWidgetId] : null;
+
+    // Temporary widget object for creation mode
+    const creationWidget: any = creatingWidgetType ? {
+        id: 'temp-new',
+        type: creatingWidgetType,
+        title: `New ${creatingWidgetType.charAt(0).toUpperCase() + creatingWidgetType.slice(1)}`,
+        apiConfig: { provider: 'alpha-vantage', endpoint: '', params: {} },
+        dataMap: {},
+        settings: {
+            refreshInterval: 0,
+            viewMode: 'single',
+            chartType: creatingWidgetType === 'chart' ? 'line' : undefined,
+            chartInterval: creatingWidgetType === 'chart' ? 'daily' : undefined,
+            cardType: creatingWidgetType === 'card' ? 'single' : undefined
+        }
+    } : null;
+
     const hasWidgets = Object.keys(widgets).length > 0;
 
     return (
-        <div className="p-4 sm:p-6 lg:p-8 min-h-screen bg-gray-100 dark:bg-black transition-colors">
-            <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="p-4 sm:p-6 lg:p-8 min-h-screen bg-gray-50 dark:bg-slate-950 transition-colors bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-900/10 via-slate-950 to-slate-950">
+            <div className="mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-gray-200/50 dark:border-white/5 pb-6">
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white flex items-center gap-2">
-                        <div className="w-8 h-8 rounded bg-emerald-500/10 flex items-center justify-center text-emerald-500">
-                            <span className="font-bold">Fin</span>
+                    <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white shadow-lg shadow-emerald-500/20">
+                            <span className="font-bold">F</span>
                         </div>
-                        Finance Dashboard
+                        <span className="bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400">
+                            FinBoard
+                        </span>
                     </h1>
-                    <p className="text-sm text-gray-500 dark:text-slate-400 mt-1 flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                        {Object.keys(widgets).length} active widgets • Real-time data
+                    <p className="text-sm text-gray-500 dark:text-slate-400 mt-2 flex items-center gap-2 pl-1">
+                        <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        </span>
+                        <span>{Object.keys(widgets).length} active widgets</span>
+                        <span className="text-gray-300 dark:text-gray-700">•</span>
+                        <span>Real-time</span>
                     </p>
                 </div>
-                <div className="flex flex-wrap gap-2 items-center">
+                <div className="flex flex-wrap gap-3 items-center">
                     <div className="relative">
                         <button
                             onClick={() => setShowTemplates(!showTemplates)}
-                            className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-800 rounded flex items-center gap-1 text-sm font-medium"
+                            className="px-4 py-2 glass dark:glass-dark hover:bg-gray-50/50 dark:hover:bg-white/5 rounded-full flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200 transition-all shadow-sm"
                         >
-                            <Layout size={18} /> Templates
+                            <Layout size={16} /> Templates
                         </button>
                         {showTemplates && (
-                            <div className="absolute top-full right-0 mt-2 w-80 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-lg shadow-xl z-20 overflow-hidden">
-                                <div className="p-3 border-b border-gray-200 dark:border-slate-800">
-                                    <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Dashboard Templates</div>
-                                    <div className="text-xs text-gray-400 dark:text-gray-500">Choose a pre-built layout</div>
+                            <div className="absolute top-full right-0 mt-2 w-80 glass dark:glass-dark rounded-xl shadow-2xl z-20 overflow-hidden backdrop-blur-xl animate-in fade-in zoom-in-95 duration-200">
+                                <div className="p-4 border-b border-gray-200/50 dark:border-white/5">
+                                    <div className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Templates</div>
+                                    <div className="text-xs text-gray-400 dark:text-gray-500">Select a layout to get started</div>
                                 </div>
                                 <div className="max-h-96 overflow-y-auto">
                                     {Object.values(templateInfos).map((template) => (
                                         <button
                                             key={template.id}
                                             onClick={() => handleLoadTemplate(template.id)}
-                                            className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-slate-800 dark:text-gray-200 transition-colors border-b border-gray-100 dark:border-slate-800 last:border-0 group"
+                                            className="w-full text-left px-4 py-3 hover:bg-gray-50/50 dark:hover:bg-white/5 transition-colors border-b border-gray-100/50 dark:border-white/5 last:border-0 group"
                                         >
-                                            <div className="flex items-start justify-between gap-2">
-                                                <div className="flex-1">
-                                                    <div className="font-medium text-sm text-gray-900 dark:text-gray-100 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
-                                                        {template.name}
-                                                    </div>
-                                                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                                        {template.description}
-                                                    </div>
-                                                    <div className="flex items-center gap-2 mt-2">
-                                                        <span className="text-[10px] px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 capitalize">
-                                                            {template.category}
-                                                        </span>
-                                                        <span className="text-[10px] text-gray-400">
-                                                            {Object.keys(templates[template.id]?.widgets || {}).length} widgets
-                                                        </span>
-                                                    </div>
-                                                </div>
+                                            <div className="font-medium text-sm text-gray-900 dark:text-gray-100 group-hover:text-emerald-600 dark:group-hover:text-emerald-400">
+                                                {template.name}
+                                            </div>
+                                            <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                                {template.description}
                                             </div>
                                         </button>
                                     ))}
@@ -360,29 +395,28 @@ export default function DashboardGrid() {
                             </div>
                         )}
                     </div>
+
                     <button
                         onClick={toggleTheme}
-                        className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-800 rounded-lg transition-all duration-300 hover:scale-105 relative group"
-                        title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+                        className="p-2.5 glass dark:glass-dark hover:bg-gray-50/50 dark:hover:bg-white/5 rounded-full text-gray-600 dark:text-gray-300 transition-all hover:scale-105 shadow-sm"
+                        title="Toggle Theme"
                     >
-                        <div className="relative">
-                            {theme === 'light' ? (
-                                <Moon size={18} className="transition-transform duration-300" />
-                            ) : (
-                                <Sun size={18} className="transition-transform duration-300 rotate-0" />
-                            )}
-                        </div>
-                        <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[10px] text-gray-500 dark:text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                            {theme === 'light' ? 'Dark' : 'Light'} Mode
-                        </span>
+                        {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
                     </button>
-                    <div className="h-6 w-px bg-gray-300 dark:bg-slate-700 mx-1"></div>
 
-                    <button onClick={() => onAddWidget('card')} className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg shadow-lg shadow-emerald-500/20 text-sm font-medium transition-all hover:scale-105 flex items-center gap-2">
-                        + Add Widget
-                    </button>
-                    <button onClick={() => onAddWidget('chart')} className="px-3 py-1.5 bg-white dark:bg-zinc-800 border dark:border-zinc-700 rounded shadow-sm text-sm hover:bg-gray-50 dark:hover:bg-zinc-700 dark:text-white transition-colors">+ Chart</button>
-                    <button onClick={() => onAddWidget('table')} className="px-3 py-1.5 bg-white dark:bg-zinc-800 border dark:border-zinc-700 rounded shadow-sm text-sm hover:bg-gray-50 dark:hover:bg-zinc-700 dark:text-white transition-colors">+ Table</button>
+                    <div className="h-8 w-px bg-gray-200 dark:bg-white/10 mx-1"></div>
+
+                    <div className="flex bg-gray-100 dark:bg-white/5 rounded-full p-1 border border-gray-200 dark:border-white/5">
+                        <button onClick={() => onAddWidget('card')} className="px-4 py-1.5 rounded-full text-sm font-medium hover:bg-white dark:hover:bg-white/10 hover:shadow-sm transition-all text-gray-700 dark:text-gray-200">
+                            + Card
+                        </button>
+                        <button onClick={() => onAddWidget('chart')} className="px-4 py-1.5 rounded-full text-sm font-medium hover:bg-white dark:hover:bg-white/10 hover:shadow-sm transition-all text-gray-700 dark:text-gray-200">
+                            + Chart
+                        </button>
+                        <button onClick={() => onAddWidget('table')} className="px-4 py-1.5 rounded-full text-sm font-medium hover:bg-white dark:hover:bg-white/10 hover:shadow-sm transition-all text-gray-700 dark:text-gray-200">
+                            + Table
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -396,6 +430,7 @@ export default function DashboardGrid() {
 
             {isLoaded && (
                 <ResponsiveGridLayout
+                    key={`grid-${layoutVersion}`}
                     className="layout"
                     layouts={layouts}
                     breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
@@ -425,15 +460,22 @@ export default function DashboardGrid() {
                         );
                     })}
                 </ResponsiveGridLayout>
-            )}
+            )
+            }
 
-            {editingWidget && (
-                <WidgetConfigModal
-                    widget={editingWidget}
-                    isOpen={!!editingWidget}
-                    onClose={() => setEditingWidgetId(null)}
-                />
-            )}
-        </div>
+            {
+                (editingWidget || creationWidget) && (
+                    <WidgetConfigModal
+                        widget={editingWidget || creationWidget}
+                        isOpen={!!editingWidget || !!creationWidget}
+                        onClose={() => {
+                            setEditingWidgetId(null);
+                            setCreatingWidgetType(null);
+                        }}
+                        onSave={handleSaveWidget}
+                    />
+                )
+            }
+        </div >
     );
 }

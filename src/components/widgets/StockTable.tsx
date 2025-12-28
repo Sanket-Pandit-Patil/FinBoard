@@ -100,19 +100,19 @@ export default function StockTable({ widget }: { widget: WidgetConfig }) {
                 <table className="w-full text-sm text-left">
                     <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-zinc-900 dark:text-gray-400 sticky top-0">
                         <tr>
-                            <th className="px-3 py-2">Symbol</th>
-                            <th className="px-3 py-2">Price</th>
-                            <th className="px-3 py-2">Vol</th>
-                            <th className="px-3 py-2">Type</th>
+                            {paginated.length > 0 ? Object.keys(paginated[0]).map((key) => (
+                                <th key={key} className="px-3 py-2">{key.replace(/_/g, ' ')}</th>
+                            )) : <th className="px-3 py-2">No Data</th>}
                         </tr>
                     </thead>
                     <tbody>
-                        {paginated.map(row => (
-                            <tr key={row.symbol} className="bg-white border-b dark:bg-zinc-950 dark:border-zinc-800 hover:bg-gray-50 dark:hover:bg-zinc-900 transition-colors">
-                                <td className="px-3 py-2 font-medium dark:text-white">{row.symbol}</td>
-                                <td className="px-3 py-2 dark:text-gray-300">${row.price}</td>
-                                <td className="px-3 py-2 dark:text-gray-300">{row.volume}</td>
-                                <td className="px-3 py-2 dark:text-gray-500 text-xs">{row.type}</td>
+                        {paginated.map((row, i) => (
+                            <tr key={i} className="bg-white border-b dark:bg-zinc-950 dark:border-zinc-800 hover:bg-gray-50 dark:hover:bg-zinc-900 transition-colors">
+                                {Object.values(row).map((val: any, idx) => (
+                                    <td key={idx} className="px-3 py-2 dark:text-gray-300">
+                                        {typeof val === 'object' ? JSON.stringify(val) : String(val)}
+                                    </td>
+                                ))}
                             </tr>
                         ))}
                     </tbody>

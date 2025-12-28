@@ -17,77 +17,63 @@ const dashboardSlice = createSlice({
             const newWidget = { ...action.payload, id };
             state.widgets[id] = newWidget;
 
-            // Calculate next available position - place next to the last widget
-            const findNextPosition = (currentLayout: any[], cols: number, widgetWidth: number = 4) => {
-                if (currentLayout.length === 0) {
+            // Calculate next available position - simple scanning algorithm (First Fit)
+            const findNextPosition = (currentLayout: any[], cols: number, widgetW: number, widgetH: number) => {
+                // Return 0,0 if empty
+                if (!currentLayout || currentLayout.length === 0) {
                     return { x: 0, y: 0 };
                 }
-                
-                // Sort by creation order (by y position, then x position) to find the last widget
-                // Find the widget with the highest y position, and if multiple, the one with highest x
-                const sortedLayout = [...currentLayout].sort((a, b) => {
-                    const aBottom = a.y + a.h;
-                    const bBottom = b.y + b.h;
-                    if (aBottom !== bBottom) return bBottom - aBottom; // Higher y first
-                    return b.x - a.x; // Then higher x
-                });
-                
-                const lastWidget = sortedLayout[0];
-                const lastX = lastWidget.x;
-                const lastY = lastWidget.y;
-                const lastW = lastWidget.w;
-                const lastH = lastWidget.h;
-                
-                // Try to place to the right of the last widget
-                const tryRightX = lastX + lastW;
-                if (tryRightX + widgetWidth <= cols) {
-                    // Check if position is free
-                    const isOccupied = currentLayout.some(item => 
-                        item.x < tryRightX + widgetWidth && item.x + item.w > tryRightX &&
-                        item.y < lastY + lastH && item.y + item.h > lastY
-                    );
-                    if (!isOccupied) {
-                        return { x: tryRightX, y: lastY };
+
+                // Helper to check collision
+                const collides = (x: number, y: number, w: number, h: number) => {
+                    return currentLayout.some(item => {
+                        if (item.i === id) return false;
+
+                        // Explicitly cast to Number to prevent string concatenation bugs and handle NaNs
+                        const itemX = Number(item.x) || 0;
+                        const itemY = Number(item.y) || 0;
+                        const itemW = Number(item.w) || 4; // Default width if missing
+                        const itemH = Number(item.h) || 4; // Default height if missing
+
+                        return (
+                            x < itemX + itemW &&
+                            x + w > itemX &&
+                            y < itemY + itemH &&
+                            y + h > itemY
+                        );
+                    });
+                };
+
+                let y = 0;
+                while (true) {
+                    for (let x = 0; x <= cols - widgetW; x++) {
+                        if (!collides(x, y, widgetW, widgetH)) {
+                            return { x, y };
+                        }
                     }
+                    y++; // Move down one row and scan again
+                    // Safety break
+                    if (y > 1000) return { x: 0, y: 0 };
                 }
-                
-                // If can't place to the right, try below the last widget
-                const tryBelowY = lastY + lastH;
-                if (tryBelowY + 4 <= 100) { // reasonable max height
-                    // Check if position is free
-                    const isOccupied = currentLayout.some(item => 
-                        item.x < lastX + widgetWidth && item.x + item.w > lastX &&
-                        item.y < tryBelowY + 4 && item.y + item.h > tryBelowY
-                    );
-                    if (!isOccupied) {
-                        return { x: lastX, y: tryBelowY };
-                    }
-                }
-                
-                // If can't place to the right or below, find the next available spot in the same row
-                for (let x = 0; x <= cols - widgetWidth; x += widgetWidth) {
-                    const isOccupied = currentLayout.some(item => 
-                        item.x < x + widgetWidth && item.x + item.w > x &&
-                        item.y < lastY + lastH && item.y + item.h > lastY
-                    );
-                    if (!isOccupied) {
-                        return { x, y: lastY };
-                    }
-                }
-                
-                // If no space in current row, place in a new row below all widgets
-                const maxY = Math.max(...currentLayout.map(item => item.y + item.h), 0);
-                return { x: 0, y: maxY };
             };
 
-            const lgPos = findNextPosition(state.layouts.lg, 12, 4);
-            const newItemLg = { i: id, x: lgPos.x, y: lgPos.y, w: 4, h: 4 };
-            
-            const mdPos = findNextPosition(state.layouts.md, 10, 4);
-            const newItemMd = { i: id, x: mdPos.x, y: mdPos.y, w: 4, h: 4 };
-            
-            const smPos = findNextPosition(state.layouts.sm, 6, 2);
-            const newItemSm = { i: id, x: smPos.x, y: smPos.y, w: 2, h: 4 };
+            const newItemLg = {
+                i: id,
+                ...findNextPosition(state.layouts.lg, 12, 4, 4),
+                w: 4, h: 4
+            };
+
+            const newItemMd = {
+                i: id,
+                ...findNextPosition(state.layouts.md, 10, 4, 4),
+                w: 4, h: 4
+            };
+
+            const newItemSm = {
+                i: id,
+                ...findNextPosition(state.layouts.sm, 6, 2, 4),
+                w: 2, h: 4
+            };
 
             state.layouts.lg = [...state.layouts.lg, newItemLg];
             state.layouts.md = [...state.layouts.md, newItemMd];
